@@ -8,15 +8,33 @@
   "bin": {
     "fridayy": "./bin/fridayy.js"
   },
+  "files": [
+    "dist",
+    "bin",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc",
     "watch": "tsc --watch",
+    "prepublishOnly": "npm run build && npm test",
     "start": "node bin/fridayy.js start",
     "dev": "tsx src/cli/index.ts",
     "test": "vitest run",
     "test:watch": "vitest",
     "example:server": "tsx examples/ecommerce/api.ts",
     "example:demo": "tsx examples/ecommerce/client-demo.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Sabari-Vasan-SM/fridayy.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Sabari-Vasan-SM/fridayy/issues"
+  },
+  "homepage": "https://github.com/Sabari-Vasan-SM/fridayy#readme",
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "mcp",
@@ -26,12 +44,14 @@
     "claude",
     "chatgpt",
     "gemini",
+    "cursor",
     "openapi",
+    "swagger",
     "rest",
     "tools",
     "agent"
   ],
-  "author": "fridayy team",
+  "author": "Sabari Vasan",
   "license": "MIT",
   "dependencies": {
     "@inquirer/prompts": "^7.3.2",
