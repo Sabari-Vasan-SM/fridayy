@@ -76,6 +76,9 @@ npx fridayy init
 ### 2. The 4-Step Developer Experience
 
 ```bash
+# How-To & Architecture guide
+fridayy use
+
 # Step 1: Initialize Fridayy configuration in your project
 fridayy init
 
@@ -91,6 +94,15 @@ fridayy review
 # Step 5: Start the standards-compliant MCP server
 fridayy start
 ```
+
+---
+
+### 🤖 Pointing AI Assistants to Your Project
+
+Simply point any LLM or AI agent (Cursor, Claude, ChatGPT, Gemini, Antigravity) to:
+👉 **[`point/AI_INSTRUCTIONS.md`](point/AI_INSTRUCTIONS.md)**
+
+The AI will automatically understand your architecture, discover endpoints, generate tools, configure safe permissions, and run the MCP server autonomously!
 
 ---
 

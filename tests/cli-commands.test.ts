@@ -24,6 +24,7 @@ describe('CLI Commands Integration', () => {
     const cli = createCli();
     const commandNames = cli.commands.map(c => c.name());
 
+    expect(commandNames).toContain('use');
     expect(commandNames).toContain('init');
     expect(commandNames).toContain('scan');
     expect(commandNames).toContain('generate');
@@ -32,6 +33,11 @@ describe('CLI Commands Integration', () => {
     expect(commandNames).toContain('tools');
     expect(commandNames).toContain('config');
     expect(commandNames).toContain('doctor');
+  });
+
+  it('should execute use command with JSON format option', async () => {
+    const cli = createCli();
+    await cli.parseAsync(['node', 'fridayy', 'use', '--json']);
   });
 
   it('should execute init command and create valid fridayy.config.json', async () => {

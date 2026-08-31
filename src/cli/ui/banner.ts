@@ -17,7 +17,7 @@ export function getBanner(): string {
 
   const authorSub = chalk.gray('                             sabarivasan\n');
   const tagline = chalk.bold.white('   Universal Application-to-MCP Platform – Turn existing APIs into AI tools\n');
-  const badges = `          ${chalk.cyan.bold('v1.0.2')}   ${chalk.bgHex('#5e17eb').white.bold(' MCP Standard ')}  ${chalk.gray('•')}  ${chalk.yellow('⚡')} Developed with ${chalk.red('❤️')} by ${chalk.hex('#00f5d4').bold('Sabarivasan')}\n`;
+  const badges = `          ${chalk.cyan.bold('v1.2.0')}   ${chalk.bgHex('#5e17eb').white.bold(' MCP Standard ')}  ${chalk.gray('•')}  ${chalk.yellow('⚡')} Developed with ${chalk.red('❤️')} by ${chalk.hex('#00f5d4').bold('Sabarivasan')}\n`;
   const repo = `                 ${chalk.gray('Repository:')} ${chalk.underline.hex('#00d2ff')('https://github.com/Sabari-Vasan-SM/fridayy')}\n`;
 
   return `${logo}${authorSub}${tagline}${badges}${repo}`;
