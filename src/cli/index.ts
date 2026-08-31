@@ -19,7 +19,7 @@ export function createCli(): Command {
   program
     .name('fridayy')
     .description('Universal Application-to-MCP Platform — Turn existing APIs into AI-ready MCP tools')
-    .version('1.0.0');
+    .version('1.0.1');
 
   // Register commands
   registerInitCommand(program);

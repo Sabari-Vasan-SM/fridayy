@@ -32,10 +32,14 @@ export function registerGenerateCommand(program: Command): void {
         config.source.path = options.spec;
       }
 
-      const spinner = ora('Generating candidate MCP tools...').start();
+      const spinner = ora({
+        text: chalk.cyan('Generating standardized MCP tools and mapping schemas...'),
+        spinner: 'dots12',
+        color: 'cyan'
+      }).start();
 
       try {
-        // Collect previous tool approval statuses unless --force is given
+        await new Promise(r => setTimeout(r, 400));
         let preserveMap: Map<string, any> | undefined;
         if (!options.force) {
           const existingTools = defaultConfigManager.loadTools(rootDir);
@@ -57,8 +61,8 @@ export function registerGenerateCommand(program: Command): void {
         spinner.succeed(`Generated ${chalk.bold.green(tools.length)} MCP tools.`);
 
         console.log('\n' + createToolsTable(tools) + '\n');
-        logger.success(`Saved tools definition to ${chalk.bold(savedPath)}`);
-        console.log(`\nNext step: Run ${chalk.cyan('fridayy review')} to approve/reject tools.\n`);
+        logger.success(`Saved tools definition to ${chalk.bold.cyan(savedPath)}`);
+        console.log(`\nNext step: Run ${chalk.cyan.bold('fridayy review')} to approve/reject candidate tools.\n`);
       } catch (err: any) {
         spinner.fail(`Generation failed: ${err.message}`);
       }

@@ -33,9 +33,15 @@ export function registerInitCommand(program: Command): void {
         return;
       }
 
-      const spinner = ora('Analyzing project structure...').start();
+      const spinner = ora({
+        text: chalk.cyan('Scanning project structure and detecting API capabilities...'),
+        spinner: 'dots12',
+        color: 'cyan'
+      }).start();
+
+      await new Promise(r => setTimeout(r, 400)); // smooth visual pause
       const scanResult = await defaultProjectScanner.scan(rootDir);
-      spinner.succeed('Project analysis complete.');
+      spinner.succeed(chalk.green('Project structure analysis complete.'));
 
       let config: FridayyConfig = {
         ...DEFAULT_CONFIG,
@@ -51,11 +57,12 @@ export function registerInitCommand(program: Command): void {
       }
 
       const savedPath = defaultConfigManager.saveConfig(config, rootDir);
-      logger.success(`Created configuration: ${chalk.bold(path.basename(savedPath))}`);
-      console.log(`\nNext steps:`);
-      console.log(`  1. Run ${chalk.cyan('fridayy scan')} to inspect discovered endpoints`);
-      console.log(`  2. Run ${chalk.cyan('fridayy generate')} to build MCP tool definitions`);
-      console.log(`  3. Run ${chalk.cyan('fridayy review')} to approve candidate tools`);
-      console.log(`  4. Run ${chalk.cyan('fridayy start')} to launch your MCP server\n`);
+      console.log('');
+      logger.success(`Created configuration: ${chalk.bold.cyan(path.basename(savedPath))}`);
+      console.log(`\n${chalk.bold('Next steps to turn your API into AI tools:')}`);
+      console.log(`  1. Run ${chalk.cyan.bold('fridayy scan')}     → inspect discovered endpoints`);
+      console.log(`  2. Run ${chalk.cyan.bold('fridayy generate')} → build MCP tool definitions`);
+      console.log(`  3. Run ${chalk.cyan.bold('fridayy review')}   → approve candidate tools`);
+      console.log(`  4. Run ${chalk.cyan.bold('fridayy start')}    → launch your MCP server\n`);
     });
 }
