@@ -1,0 +1,38 @@
+{
+  "name": "fridayy-ecommerce-demo",
+  "version": "1.0.0",
+  "description": "Fridayy MCP server connected to E-Commerce Store API",
+  "source": {
+    "type": "openapi",
+    "path": "./openapi.yaml",
+    "baseUrl": "http://localhost:4000"
+  },
+  "server": {
+    "name": "ecommerce-mcp",
+    "version": "1.0.0",
+    "transport": "stdio",
+    "port": 3000
+  },
+  "security": {
+    "requireApprovalForDestructive": true,
+    "autoApproveRead": true,
+    "autoApproveWrite": false,
+    "secretEnvPrefix": "FRIDAYY_"
+  },
+  "auth": {
+    "ApiKeyAuth": {
+      "type": "apiKey",
+      "headerName": "x-api-key",
+      "envKey": "FRIDAYY_API_KEY",
+      "value": "secret-ecommerce-key"
+    }
+  },
+  "logging": {
+    "level": "info",
+    "maskSecrets": true
+  },
+  "tools": {
+    "autoGenerate": true,
+    "toolsFile": "./fridayy.tools.json"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "name": "fridayy",
+  "version": "1.0.0",
+  "description": "Universal Application-to-MCP Platform — Turn existing applications and APIs into AI-ready MCP tools",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "bin": {
+    "fridayy": "./bin/fridayy.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "node bin/fridayy.js start",
+    "dev": "tsx src/cli/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "example:server": "tsx examples/ecommerce/api.ts",
+    "example:demo": "tsx examples/ecommerce/client-demo.ts"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "llm",
+    "claude",
+    "chatgpt",
+    "gemini",
+    "openapi",
+    "rest",
+    "tools",
+    "agent"
+  ],
+  "author": "fridayy team",
+  "license": "MIT",
+  "dependencies": {
+    "@inquirer/prompts": "^7.3.2",
+    "@modelcontextprotocol/sdk": "^1.6.1",
+    "chalk": "^5.4.1",
+    "cli-table3": "^0.6.5",
+    "commander": "^13.1.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ora": "^8.2.0",
+    "undici": "^7.4.0",
+    "yaml": "^2.7.0",
+    "zod": "^3.24.2",
+    "zod-to-json-schema": "^3.24.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.13.9",
+    "tsx": "^4.19.3",
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.7"
+  }
+}

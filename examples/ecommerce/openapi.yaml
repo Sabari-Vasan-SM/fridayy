@@ -1,0 +1,225 @@
+openapi: 3.0.3
+info:
+  title: Fridayy E-Commerce Store API
+  version: 1.0.0
+  description: A complete e-commerce REST API demonstrating products, orders, users, inventory, and MCP conversion.
+servers:
+  - url: http://localhost:4000
+    description: Local development server
+
+security:
+  - ApiKeyAuth: []
+
+paths:
+  /products:
+    get:
+      operationId: get_products
+      summary: List all products
+      description: Retrieve a paginated list of catalog products with optional category and search filters.
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter products by category (e.g. electronics, apparel)
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Maximum number of products to return
+      responses:
+        '200':
+          description: List of products returned successfully
+
+    post:
+      operationId: create_product
+      summary: Create a new product
+      description: Add a new product to the catalog with inventory and price details.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - price
+                - stock
+              properties:
+                title:
+                  type: string
+                  description: Product title
+                price:
+                  type: number
+                  description: Product price in USD
+                stock:
+                  type: integer
+                  description: Initial stock quantity
+                category:
+                  type: string
+                  description: Product category
+      responses:
+        '201':
+          description: Product created successfully
+
+  /products/{productId}:
+    get:
+      operationId: get_product
+      summary: Get product by ID
+      description: Retrieve detailed information for a specific product ID.
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique product identifier
+      responses:
+        '200':
+          description: Product details
+
+    delete:
+      operationId: delete_product
+      summary: Delete a product
+      description: Permanently remove a product from the catalog.
+      parameters:
+        - name: productId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique product identifier to delete
+      responses:
+        '200':
+          description: Product deleted successfully
+
+  /orders:
+    get:
+      operationId: get_orders
+      summary: List customer orders
+      description: Retrieve a list of recent customer orders.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, completed, cancelled]
+          description: Filter orders by status
+      responses:
+        '200':
+          description: List of orders
+
+    post:
+      operationId: create_order
+      summary: Create a new customer order
+      description: Submit an order for items in the shopping cart.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - customerEmail
+                - items
+              properties:
+                customerEmail:
+                  type: string
+                  description: Customer contact email
+                items:
+                  type: array
+                  items:
+                    type: object
+                    required:
+                      - productId
+                      - quantity
+                    properties:
+                      productId:
+                        type: string
+                      quantity:
+                        type: integer
+                        minimum: 1
+      responses:
+        '201':
+          description: Order created successfully
+
+  /orders/{orderId}:
+    get:
+      operationId: get_order
+      summary: Get order details
+      description: Retrieve full invoice and fulfillment status for an order ID.
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Unique order identifier
+      responses:
+        '200':
+          description: Order details
+
+  /users:
+    get:
+      operationId: get_users
+      summary: List registered users
+      description: Retrieve user accounts.
+      responses:
+        '200':
+          description: List of users
+
+    post:
+      operationId: create_user
+      summary: Register a new user
+      description: Create a user account profile.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - email
+              properties:
+                name:
+                  type: string
+                email:
+                  type: string
+                role:
+                  type: string
+                  enum: [customer, admin]
+                  default: customer
+      responses:
+        '201':
+          description: User registered
+
+  /users/{userId}:
+    delete:
+      operationId: delete_user
+      summary: Delete user account
+      description: Permanently erase a user account and associated personal data.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+          description: User ID to delete
+      responses:
+        '200':
+          description: User deleted
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
+      description: API Key authentication header
