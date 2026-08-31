@@ -1,6 +1,6 @@
 /**
  * Fridayy - Start Command
- * Boots the MCP server over Stdio or SSE transports.
+ * Boots the MCP server with animated startup diagnostics.
  */
 
 import { Command } from 'commander';
@@ -8,15 +8,17 @@ import chalk from 'chalk';
 import { defaultConfigManager } from '../../config/config-manager.js';
 import { FridayyMcpServer } from '../../mcp/server/fridayy-server.js';
 import { defaultAdapterRegistry } from '../../adapters/registry.js';
-import { getBanner } from '../ui/banner.js';
+import { printBanner } from '../ui/banner.js';
+import { runStartupAnimation } from '../ui/startup-animation.js';
 
 export function registerStartCommand(program: Command): void {
   program
     .command('start')
-    .description('Start the Fridayy MCP server')
+    .description('Start the Fridayy MCP server with animated runtime diagnostics')
     .option('-t, --transport <type>', 'Transport mechanism: stdio or sse', 'stdio')
     .option('-p, --port <port>', 'Port number for SSE transport', '3000')
     .option('-h, --host <host>', 'Host address for SSE transport', 'localhost')
+    .option('--no-animation', 'Skip startup animation')
     .action(async (options) => {
       const rootDir = process.cwd();
 
@@ -35,6 +37,14 @@ export function registerStartCommand(program: Command): void {
       });
 
       const exposedTools = server.getToolRegistry().getExposedTools();
+      const transport = options.transport || config.server?.transport || 'stdio';
+
+      if (transport === 'sse' || process.stdout.isTTY) {
+        printBanner();
+        if (options.animation !== false) {
+          await runStartupAnimation();
+        }
+      }
 
       if (exposedTools.length === 0) {
         console.error(
@@ -43,25 +53,24 @@ export function registerStartCommand(program: Command): void {
         console.error(chalk.gray('  Run `fridayy review --approve-read` or `fridayy review --approve-all` to approve tools.'));
       }
 
-      const transport = options.transport || config.server?.transport || 'stdio';
-
       if (transport === 'sse') {
         const port = parseInt(options.port || String(config.server?.port || 3000), 10);
         const host = options.host || config.server?.host || 'localhost';
 
-        console.log(getBanner());
         console.log(chalk.green(`✓ Fridayy MCP Server (SSE) running at http://${host}:${port}`));
         console.log(chalk.cyan(`  - SSE Endpoint:   http://${host}:${port}/sse`));
         console.log(chalk.cyan(`  - Messages Post:  http://${host}:${port}/messages`));
         console.log(chalk.cyan(`  - Health Check:   http://${host}:${port}/health`));
-        console.log(`\nExposing ${chalk.bold.green(exposedTools.length)} approved tools to MCP clients.`);
+        console.log(`\nExposing ${chalk.bold.green(exposedTools.length)} approved tools to MCP clients.\n`);
 
         await server.startSse(port, host);
       } else {
-        // Stdio transport: Logs must go to stderr to preserve stdout for JSON-RPC
-        console.error(
-          chalk.cyan(`[fridayy] Stdio MCP Server started with ${exposedTools.length} approved tools.`)
-        );
+        // Stdio transport: Logs go to stderr to keep stdout pristine for JSON-RPC messages
+        if (!process.stdout.isTTY) {
+          console.error(
+            chalk.cyan(`[fridayy] Stdio MCP Server active with ${exposedTools.length} approved tools.`)
+          );
+        }
         await server.startStdio();
       }
     });

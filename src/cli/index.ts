@@ -12,6 +12,8 @@ import { registerStartCommand } from './commands/start.js';
 import { registerToolsCommand } from './commands/tools.js';
 import { registerConfigCommand } from './commands/config.js';
 import { registerDoctorCommand } from './commands/doctor.js';
+import { printBanner } from './ui/banner.js';
+import { runStartupAnimation } from './ui/startup-animation.js';
 
 export function createCli(): Command {
   const program = new Command();
@@ -19,9 +21,21 @@ export function createCli(): Command {
   program
     .name('fridayy')
     .description('Universal Application-to-MCP Platform — Turn existing APIs into AI-ready MCP tools')
-    .version('1.0.1');
+    .version('1.0.2')
+    .action(async () => {
+      printBanner();
+      await runStartupAnimation();
+      console.log('Available Commands:');
+      console.log('  fridayy init      → Initialize configuration');
+      console.log('  fridayy scan      → Scan API endpoints and specs');
+      console.log('  fridayy generate  → Generate candidate MCP tools');
+      console.log('  fridayy review    → Review and approve tools');
+      console.log('  fridayy start     → Start the MCP server');
+      console.log('  fridayy tools     → List all tools and statuses');
+      console.log('  fridayy doctor    → Run diagnostics and health check\n');
+    });
 
-  // Register commands
+  // Register subcommands
   registerInitCommand(program);
   registerScanCommand(program);
   registerGenerateCommand(program);
