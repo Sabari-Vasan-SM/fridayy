@@ -1,6 +1,6 @@
 /**
  * Fridayy - Init Command
- * Initializes fridayy.config.json in the current project.
+ * Initializes fridayy.config.json with smart source detection and manual overrides.
  */
 
 import path from 'node:path';
@@ -21,8 +21,9 @@ export function registerInitCommand(program: Command): void {
     .option('-y, --yes', 'Skip prompts and accept recommended defaults')
     .option('-f, --force', 'Overwrite existing configuration file')
     .option('--name <name>', 'Project name')
+    .option('--source <type>', 'Source adapter type: openapi, nodejs, rest, manual')
     .option('--spec <path>', 'Path to OpenAPI specification file')
-    .option('--url <url>', 'Target API base URL')
+    .option('--url <url>', 'Target API base URL (e.g. http://localhost:4000)')
     .action(async (options) => {
       printBanner();
       const rootDir = process.cwd();
@@ -39,7 +40,7 @@ export function registerInitCommand(program: Command): void {
         color: 'cyan'
       }).start();
 
-      await new Promise(r => setTimeout(r, 400)); // smooth visual pause
+      await new Promise(r => setTimeout(r, 400));
       const scanResult = await defaultProjectScanner.scan(rootDir);
       spinner.succeed(chalk.green('Project structure analysis complete.'));
 
@@ -48,17 +49,63 @@ export function registerInitCommand(program: Command): void {
         ...(scanResult.recommendedConfig as FridayyConfig)
       };
 
-      if (options.name) config.name = options.name;
-      if (options.spec) {
-        config.source = { type: 'openapi', path: options.spec };
+      if (options.name) {
+        config.name = options.name;
+        if (config.server) {
+          config.server.name = `${options.name}-mcp`;
+        }
       }
-      if (options.url) {
-        config.source.baseUrl = options.url;
+
+      // Explicit source override
+      if (options.source) {
+        const srcType = options.source.toLowerCase();
+        if (srcType === 'nodejs') {
+          config.source = {
+            type: 'nodejs',
+            rootDir: './',
+            baseUrl: options.url || config.source.baseUrl
+          };
+        } else if (srcType === 'rest') {
+          config.source = {
+            type: 'rest',
+            baseUrl: options.url || 'http://localhost:3000'
+          };
+        } else if (srcType === 'openapi') {
+          config.source = {
+            type: 'openapi',
+            path: options.spec || scanResult.openApiFiles[0] || './openapi.yaml',
+            baseUrl: options.url || config.source.baseUrl
+          };
+        } else {
+          config.source = {
+            type: srcType,
+            baseUrl: options.url || config.source.baseUrl
+          };
+        }
+      } else {
+        // Smart URL handling when no explicit --source is given
+        if (options.spec) {
+          config.source = {
+            type: 'openapi',
+            path: options.spec,
+            baseUrl: options.url || config.source.baseUrl
+          };
+        } else if (options.url) {
+          config.source.baseUrl = options.url;
+          // If no OpenAPI spec exists, ensure source is not stuck on openapi
+          if (!scanResult.hasOpenApi) {
+            config.source.type = scanResult.hasNodeJs ? 'nodejs' : 'rest';
+            if (config.source.type === 'nodejs') {
+              config.source.rootDir = './';
+            }
+          }
+        }
       }
 
       const savedPath = defaultConfigManager.saveConfig(config, rootDir);
       console.log('');
       logger.success(`Created configuration: ${chalk.bold.cyan(path.basename(savedPath))}`);
+      console.log(`  Source Adapter: ${chalk.cyan.bold(config.source.type.toUpperCase())} ${config.source.path ? `(${config.source.path})` : ''} ${config.source.baseUrl ? `→ ${config.source.baseUrl}` : ''}`);
       console.log(`\n${chalk.bold('Next steps to turn your API into AI tools:')}`);
       console.log(`  1. Run ${chalk.cyan.bold('fridayy scan')}     → inspect discovered endpoints`);
       console.log(`  2. Run ${chalk.cyan.bold('fridayy generate')} → build MCP tool definitions`);

@@ -47,7 +47,7 @@ export class ProjectScanner {
 
         // Collect security schemes
         if (parsed.securityDefinitions) {
-          for (const [schemeName, schemeDef] of Object.entries(parsed.securityDefinitions)) {
+          for (const [schemeName] of Object.entries(parsed.securityDefinitions)) {
             authSchemesDetected.add(schemeName);
           }
         }
@@ -70,36 +70,43 @@ export class ProjectScanner {
         else if (allDeps.fastify) nodeJsFramework = 'fastify';
         else if (allDeps.koa) nodeJsFramework = 'koa';
         else if (allDeps['@nestjs/core']) nodeJsFramework = 'nestjs';
+        else if (allDeps.next) nodeJsFramework = 'custom';
         else nodeJsFramework = 'custom';
       } catch {
         nodeJsFramework = 'custom';
       }
     }
 
-    const discoveredRoutes = await this.nodeJsScanner.scanDirectory(absRoot, 100);
-    if (discoveredRoutes.length > 0 && !hasOpenApi) {
+    const discoveredRoutes = await this.nodeJsScanner.scanDirectory(absRoot, 500);
+    if (!hasOpenApi && discoveredRoutes.length > 0) {
       totalEndpoints += discoveredRoutes.length;
     }
 
     // 3. Formulate recommended configuration
     const projectName = path.basename(absRoot);
+
+    let recommendedSource: FridayyConfig['source'];
+    if (hasOpenApi) {
+      recommendedSource = {
+        type: 'openapi',
+        path: openApiFiles[0]
+      };
+    } else if (hasNodeJs) {
+      recommendedSource = {
+        type: 'nodejs',
+        rootDir: './'
+      };
+    } else {
+      recommendedSource = {
+        type: 'rest',
+        baseUrl: 'http://localhost:3000'
+      };
+    }
+
     const recommendedConfig: Partial<FridayyConfig> = {
       name: projectName,
       version: '1.0.0',
-      source: hasOpenApi
-        ? {
-            type: 'openapi',
-            path: openApiFiles[0]
-          }
-        : hasNodeJs && discoveredRoutes.length > 0
-        ? {
-            type: 'nodejs',
-            rootDir: './'
-          }
-        : {
-            type: 'openapi',
-            path: './openapi.yaml'
-          },
+      source: recommendedSource,
       server: {
         name: `${projectName}-mcp`,
         version: '1.0.0',
@@ -138,7 +145,9 @@ export class ProjectScanner {
       'api/openapi.yaml',
       'api/openapi.json',
       'docs/openapi.yaml',
-      'docs/openapi.json'
+      'docs/openapi.json',
+      'src/openapi.yaml',
+      'src/openapi.json'
     ];
 
     const found: string[] = [];
@@ -148,7 +157,7 @@ export class ProjectScanner {
       }
     }
 
-    // Also search root for any *.openapi.json or *.swagger.yaml
+    // Also search root and common folders for any *.openapi.json or *.swagger.yaml
     try {
       const files = fs.readdirSync(rootDir);
       for (const file of files) {
