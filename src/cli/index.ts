@@ -22,7 +22,7 @@ export function createCli(): Command {
   program
     .name('fridayy')
     .description('Universal Application-to-MCP Platform — Turn existing APIs into AI-ready MCP tools')
-    .version('1.2.0')
+    .version('1.2.1')
     .action(async () => {
       printBanner();
       await runStartupAnimation();

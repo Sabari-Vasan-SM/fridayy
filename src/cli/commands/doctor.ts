@@ -3,6 +3,8 @@
  * Diagnoses project configuration, environment variables, target API connectivity, and permissions.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { defaultConfigManager } from '../../config/config-manager.js';
@@ -39,7 +41,44 @@ export function registerDoctorCommand(program: Command): void {
         errorCount++;
       }
 
-      // 2. Check tools file
+      // 2. Check Source Adapter & Files
+      if (config) {
+        const sourceType = config.source?.type || 'openapi';
+        if (sourceType === 'openapi') {
+          const specPath = path.resolve(rootDir, config.source?.path || './openapi.yaml');
+          if (fs.existsSync(specPath)) {
+            console.log(chalk.green('✓') + ` Source Adapter: OpenAPI specification verified at ${config.source.path}`);
+            passedCount++;
+          } else {
+            console.log(
+              chalk.yellow('⚠') +
+                ` Source Adapter: OpenAPI spec not found at "${config.source?.path || './openapi.yaml'}".` +
+                chalk.gray(' Run `fridayy init --source nodejs` or specify `--spec <path>`.')
+            );
+            warnCount++;
+          }
+        } else if (sourceType === 'nodejs') {
+          const pkgExists = fs.existsSync(path.join(rootDir, 'package.json'));
+          if (pkgExists) {
+            console.log(chalk.green('✓') + ' Source Adapter: Node.js workspace detected and active');
+            passedCount++;
+          } else {
+            console.log(chalk.yellow('⚠') + ' Source Adapter: No package.json found in current directory');
+            warnCount++;
+          }
+        } else if (sourceType === 'rest') {
+          const hasUrl = Boolean(config.source?.baseUrl);
+          if (hasUrl) {
+            console.log(chalk.green('✓') + ` Source Adapter: REST API configured at ${config.source.baseUrl}`);
+            passedCount++;
+          } else {
+            console.log(chalk.yellow('⚠') + ' Source Adapter: No baseUrl configured for REST adapter');
+            warnCount++;
+          }
+        }
+      }
+
+      // 3. Check tools file
       const tools = defaultConfigManager.loadTools(rootDir);
       if (tools.length > 0) {
         console.log(chalk.green('✓') + ` Tools Definition: fridayy.tools.json found with ${tools.length} tools`);
@@ -49,7 +88,7 @@ export function registerDoctorCommand(program: Command): void {
         warnCount++;
       }
 
-      // 3. Check Approval Breakdown & Destructive Safety
+      // 4. Check Approval Breakdown & Destructive Safety
       if (tools.length > 0) {
         const approved = tools.filter(t => t.status === 'APPROVED').length;
         const pending = tools.filter(t => t.status === 'PENDING').length;
@@ -77,7 +116,7 @@ export function registerDoctorCommand(program: Command): void {
         }
       }
 
-      // 4. Check Environment Variables & Secrets
+      // 5. Check Environment Variables & Secrets
       if (tools.length > 0) {
         const authSchemes = tools
           .filter(t => t.authentication?.required)
@@ -104,7 +143,7 @@ export function registerDoctorCommand(program: Command): void {
         }
       }
 
-      // 5. Target API Connectivity Check
+      // 6. Target API Connectivity Check
       const baseUrl = defaultSecretResolver.resolveBaseUrl(config?.source?.baseUrl);
       if (baseUrl) {
         try {

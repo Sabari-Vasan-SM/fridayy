@@ -1,8 +1,12 @@
 /**
  * Fridayy - Tool Generator Engine
  * Coordinates adapters to generate, filter, and normalize candidate MCP tools.
+ * Features intelligent auto-fallback across adapters when files are missing.
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
+import chalk from 'chalk';
 import { FridayyToolDefinition, FridayyConfig } from '../schema/types.js';
 import { AdapterRegistry, defaultAdapterRegistry } from '../../adapters/registry.js';
 import { isToolAllowed } from '../../security/allowlist.js';
@@ -10,6 +14,7 @@ import { isToolAllowed } from '../../security/allowlist.js';
 export interface GenerationOptions {
   rootDir?: string;
   config: FridayyConfig;
+  sourceTypeOverride?: 'openapi' | 'nodejs' | 'rest' | 'manual';
   preserveStatuses?: Map<string, 'APPROVED' | 'PENDING' | 'BLOCKED' | 'REJECTED'>;
 }
 
@@ -21,15 +26,47 @@ export class ToolGenerator {
   }
 
   /**
-   * Generates MCP tools from the configured source adapter.
+   * Generates MCP tools with automated adapter fallback capabilities.
    */
   public async generate(options: GenerationOptions): Promise<FridayyToolDefinition[]> {
-    const { config, rootDir = process.cwd(), preserveStatuses } = options;
-    const sourceType = config.source.type || 'openapi';
+    const { config, rootDir = process.cwd(), preserveStatuses, sourceTypeOverride } = options;
+    let sourceType = sourceTypeOverride || config.source.type || 'openapi';
 
-    const adapter = this.adapterRegistry.get(sourceType);
+    // Auto-fallback check if OpenAPI file does not exist
+    if (sourceType === 'openapi') {
+      const specPath = config.source.path ? path.resolve(rootDir, config.source.path) : null;
+      const specExists = specPath && fs.existsSync(specPath);
+
+      if (!specExists) {
+        // Check if Node.js project exists
+        const hasPkgJson = fs.existsSync(path.join(rootDir, 'package.json'));
+        if (hasPkgJson && this.adapterRegistry.has('nodejs')) {
+          console.warn(
+            chalk.yellow(
+              `⚠ OpenAPI specification not found at "${config.source.path || './openapi.yaml'}". Automatically switching to Node.js route discovery.`
+            )
+          );
+          sourceType = 'nodejs';
+        } else if (config.source.baseUrl && this.adapterRegistry.has('rest')) {
+          console.warn(
+            chalk.yellow(
+              `⚠ OpenAPI specification not found at "${config.source.path || './openapi.yaml'}". Automatically switching to REST adapter for ${config.source.baseUrl}.`
+            )
+          );
+          sourceType = 'rest';
+        }
+      }
+    }
+
+    let adapter = this.adapterRegistry.get(sourceType);
     if (!adapter) {
-      throw new Error(`Unsupported source adapter: "${sourceType}". Registered adapters: [${this.adapterRegistry.getAll().map(a => a.name).join(', ')}]`);
+      // Fallback to first available adapter
+      const allAdapters = this.adapterRegistry.getAll();
+      if (allAdapters.length > 0) {
+        adapter = allAdapters[0];
+      } else {
+        throw new Error(`No compatible source adapters found for type "${sourceType}".`);
+      }
     }
 
     const generatedRawTools = await adapter.generateTools({

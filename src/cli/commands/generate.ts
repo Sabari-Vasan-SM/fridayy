@@ -18,6 +18,7 @@ export function registerGenerateCommand(program: Command): void {
     .description('Generate candidate MCP tools from configured API sources')
     .option('--force', 'Regenerate all tools and reset approval statuses')
     .option('--spec <path>', 'Path to OpenAPI specification')
+    .option('--source <type>', 'Override source adapter type: openapi, nodejs, rest')
     .action(async (options) => {
       printBanner();
       const rootDir = process.cwd();
@@ -30,6 +31,9 @@ export function registerGenerateCommand(program: Command): void {
       const config = defaultConfigManager.loadConfig(rootDir);
       if (options.spec) {
         config.source.path = options.spec;
+      }
+      if (options.source) {
+        config.source.type = options.source;
       }
 
       const spinner = ora({
@@ -54,13 +58,19 @@ export function registerGenerateCommand(program: Command): void {
         const tools = await defaultToolGenerator.generate({
           config,
           rootDir,
+          sourceTypeOverride: options.source,
           preserveStatuses: preserveMap
         });
 
         const savedPath = defaultConfigManager.saveTools(tools, config.source.type, rootDir);
         spinner.succeed(`Generated ${chalk.bold.green(tools.length)} MCP tools.`);
 
-        console.log('\n' + createToolsTable(tools) + '\n');
+        if (tools.length > 0) {
+          console.log('\n' + createToolsTable(tools) + '\n');
+        } else {
+          console.log(chalk.yellow('\n⚠ 0 tools generated. No endpoints discovered or configured.'));
+        }
+
         logger.success(`Saved tools definition to ${chalk.bold.cyan(savedPath)}`);
         console.log(`\nNext step: Run ${chalk.cyan.bold('fridayy review')} to approve/reject candidate tools.\n`);
       } catch (err: any) {

@@ -19,6 +19,7 @@ export function registerScanCommand(program: Command): void {
     .command('scan')
     .description('Scan project or API to detect capabilities, endpoints, and candidate tools')
     .option('--spec <path>', 'Path to OpenAPI specification file')
+    .option('--source <type>', 'Force specific source adapter: openapi, nodejs, rest')
     .action(async (options) => {
       printBanner();
       const rootDir = process.cwd();
@@ -38,10 +39,13 @@ export function registerScanCommand(program: Command): void {
           for (const spec of scanResult.details.openApiSpecs || []) {
             console.log(`  └─ ${chalk.cyan.bold(spec.path)} (${spec.title}, ${chalk.green(spec.endpointsCount)} endpoints)`);
           }
+        } else {
+          logger.info('No OpenAPI specification file detected in workspace.');
         }
 
         if (scanResult.hasNodeJs) {
-          logger.success(`Node.js application detected (${chalk.cyan(scanResult.nodeJsFramework || 'standard')})`);
+          const routeCount = scanResult.details.routes?.length || 0;
+          logger.success(`Node.js application detected (${chalk.cyan(scanResult.nodeJsFramework || 'standard')}) — ${chalk.green(routeCount)} routes found`);
         }
 
         logger.success(`${chalk.bold.green(scanResult.discoveredEndpointsCount)} total endpoints discovered`);
@@ -52,7 +56,7 @@ export function registerScanCommand(program: Command): void {
           logger.info('No explicit authentication schemes detected');
         }
 
-        // Try generating candidate tools
+        // Determine effective configuration
         let config: FridayyConfig;
         if (defaultConfigManager.configExists(rootDir)) {
           config = defaultConfigManager.loadConfig(rootDir);
@@ -61,32 +65,43 @@ export function registerScanCommand(program: Command): void {
             ...DEFAULT_CONFIG,
             ...(scanResult.recommendedConfig as FridayyConfig)
           };
-          if (options.spec) {
-            config.source = { type: 'openapi', path: options.spec };
-          }
         }
 
+        if (options.spec) {
+          config.source = { type: 'openapi', path: options.spec };
+        }
+        if (options.source) {
+          config.source.type = options.source;
+        }
+
+        // Generate candidate tools with auto-fallback
         const candidateTools = await defaultToolGenerator.generate({
           config,
-          rootDir
+          rootDir,
+          sourceTypeOverride: options.source
         });
 
-        console.log('\n' + chalk.bold.underline('Candidate MCP tools:'));
-        candidateTools.forEach((tool, index) => {
-          const typeBadge =
-            tool.permissions.type === 'READ'
-              ? chalk.bgGreen.black(' READ ')
-              : tool.permissions.type === 'WRITE'
-              ? chalk.bgYellow.black(' WRITE ')
-              : chalk.bgRed.white.bold(' DESTRUCTIVE ');
-          console.log(`  ${chalk.gray(String(index + 1).padStart(2, '0') + '.')} ${chalk.bold(tool.name)} ${typeBadge} - ${chalk.gray(tool.description)}`);
-        });
+        if (candidateTools.length > 0) {
+          console.log('\n' + chalk.bold.underline('Candidate MCP tools:'));
+          candidateTools.forEach((tool, index) => {
+            const typeBadge =
+              tool.permissions.type === 'READ'
+                ? chalk.bgGreen.black(' READ ')
+                : tool.permissions.type === 'WRITE'
+                ? chalk.bgYellow.black(' WRITE ')
+                : chalk.bgRed.white.bold(' DESTRUCTIVE ');
+            console.log(`  ${chalk.gray(String(index + 1).padStart(2, '0') + '.')} ${chalk.bold(tool.name)} ${typeBadge} - ${chalk.gray(tool.description)}`);
+          });
+          console.log(`\n${chalk.bold.green(candidateTools.length)} candidate tools identified.`);
+        } else {
+          console.log(chalk.yellow('\n⚠ No endpoints or candidate tools generated yet.'));
+          console.log(chalk.gray('  Tip: Provide an API base URL with `fridayy init --url http://localhost:4000` or an OpenAPI spec with `--spec <path>`.'));
+        }
 
-        console.log(`\n${chalk.bold.green(candidateTools.length)} candidate tools identified.`);
         console.log(`\nNext step: Run ${chalk.cyan.bold('fridayy review')} to review and approve generated tools.`);
         console.log(`           Run ${chalk.cyan.bold('fridayy start')}  to launch the MCP server.\n`);
       } catch (err: any) {
-        spinner.fail(`Scan failed: ${err.message}`);
+        spinner.fail(`Scan completed with notice: ${err.message}`);
       }
     });
 }
