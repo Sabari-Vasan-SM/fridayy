@@ -104,8 +104,7 @@ export class RestExecutor {
         success: false,
         error: {
           code: 'NETWORK_ERROR',
-          message: `Network error invoking ${request.method} ${request.url}: ${err.message}`,
-          details: err.stack
+          message: `Network error invoking ${request.method} ${request.url}: ${err.message}`
         },
         metadata: {
           durationMs,

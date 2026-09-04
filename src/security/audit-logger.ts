@@ -58,8 +58,13 @@ export class AuditLogger {
     if (this.logFilePath) {
       try {
         fs.appendFileSync(this.logFilePath, jsonString + '\n', 'utf-8');
-      } catch (err) {
-        // Fail silently on logging error to avoid breaking server
+      } catch (err: any) {
+        // Don't throw (a broken audit log must never break tool execution), but
+        // surface the failure once per occurrence so a full disk / bad permissions
+        // doesn't silently disable the audit trail without anyone noticing.
+        console.error(
+          chalk.red(`[fridayy] Failed to write audit log entry to ${this.logFilePath}: ${err.message}`)
+        );
       }
     }
 

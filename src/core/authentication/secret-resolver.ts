@@ -4,6 +4,7 @@
  */
 
 import dotenv from 'dotenv';
+import { defaultCredentialsStore, CredentialsStore } from '../../config/credentials-store.js';
 
 // Load .env if present
 dotenv.config();
@@ -16,22 +17,32 @@ export interface SecretResolutionOptions {
 
 export class SecretResolver {
   private customEnv: Record<string, string>;
+  private credentialsStore: CredentialsStore;
 
-  constructor(customEnv: Record<string, string> = {}) {
+  constructor(customEnv: Record<string, string> = {}, credentialsStore: CredentialsStore = defaultCredentialsStore) {
     this.customEnv = customEnv;
+    this.credentialsStore = credentialsStore;
   }
 
   /**
-   * Resolves a secret value from process.env or custom config.
+   * Resolves a secret value from process.env, custom config, or the global
+   * per-device credentials store.
    * Priority:
    * 1. Direct envKey if specified in tool/auth definition
    * 2. Standard FRIDAYY_<SCHEME>_KEY or FRIDAYY_<NAME>
    * 3. customEnv lookup
+   * 4. Global credentials store (~/.config/fridayy/credentials.json or the
+   *    OS-appropriate equivalent — see config/global-dir.ts), keyed by the same
+   *    candidate env-var-shaped names. This lets a secret be configured once per
+   *    device (`fridayy secrets set <NAME> <value>`) and reused by every project
+   *    on that machine, instead of being duplicated in plaintext per-project
+   *    config files.
    */
   public resolveSecret(keyOrScheme: string, options: SecretResolutionOptions = {}): string | undefined {
     // 1. Check explicit envKey
     if (options.envKey) {
-      const explicitVal = process.env[options.envKey] || this.customEnv[options.envKey];
+      const explicitVal =
+        process.env[options.envKey] || this.customEnv[options.envKey] || this.credentialsStore.get(options.envKey);
       if (explicitVal) return explicitVal;
     }
 
@@ -57,6 +68,11 @@ export class SecretResolver {
       if (this.customEnv[cand]) {
         return this.customEnv[cand];
       }
+    }
+
+    for (const cand of candidates) {
+      const stored = this.credentialsStore.get(cand);
+      if (stored) return stored;
     }
 
     return options.fallbackValue;

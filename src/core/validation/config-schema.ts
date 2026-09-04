@@ -100,7 +100,8 @@ export const FridayyConfigSchema = z.object({
     transport: z.enum(['stdio', 'sse']).optional().default('stdio'),
     port: z.number().optional().default(3000),
     host: z.string().optional().default('localhost'),
-    maxRequestsPerMinute: z.number().optional().default(60)
+    maxRequestsPerMinute: z.number().optional().default(60),
+    apiKeyEnvVar: z.string().optional()
   }).optional().default({}),
   security: z.object({
     requireApprovalForDestructive: z.boolean().optional().default(true),

@@ -8,6 +8,7 @@ import chalk from 'chalk';
 import { defaultConfigManager } from '../../config/config-manager.js';
 import { printBanner } from '../ui/banner.js';
 import { logger } from '../ui/logger.js';
+import { sanitizeData } from '../../security/sanitizer.js';
 
 export function registerConfigCommand(program: Command): void {
   const configCmd = program
@@ -24,7 +25,7 @@ export function registerConfigCommand(program: Command): void {
 
       const config = defaultConfigManager.loadConfig(rootDir);
       console.log(chalk.bold('Active Configuration (fridayy.config.json):\n'));
-      console.log(JSON.stringify(config, null, 2) + '\n');
+      console.log(JSON.stringify(maskConfigSecrets(config), null, 2) + '\n');
     });
 
   configCmd
@@ -38,7 +39,7 @@ export function registerConfigCommand(program: Command): void {
       }
 
       const config = defaultConfigManager.loadConfig(rootDir);
-      const val = getNestedValue(config, key);
+      const val = getNestedValue(maskConfigSecrets(config), key);
       if (val === undefined) {
         console.log(chalk.gray('undefined'));
       } else if (typeof val === 'object') {
@@ -66,8 +67,36 @@ export function registerConfigCommand(program: Command): void {
 
       setNestedValue(config, key, parsedVal);
       defaultConfigManager.saveConfig(config, rootDir);
-      logger.success(`Updated ${chalk.cyan(key)} = ${chalk.bold(String(parsedVal))}`);
+
+      if (/^auth\.[^.]+\.value$/.test(key)) {
+        logger.success(`Updated ${chalk.cyan(key)} = [REDACTED]`);
+        console.log(
+          chalk.yellow(
+            '⚠ Storing a secret directly in fridayy.config.json. Prefer setting an "envKey" and an ' +
+              'environment variable instead — this file is easy to accidentally commit to source control.'
+          )
+        );
+      } else {
+        logger.success(`Updated ${chalk.cyan(key)} = ${chalk.bold(String(parsedVal))}`);
+      }
     });
+}
+
+/**
+ * Masks inline secret values (e.g. `auth.<scheme>.value`) before printing config
+ * to the terminal — plaintext secrets should never be echoed to stdout/shell
+ * history/CI logs, even though storing them there at all is discouraged.
+ */
+function maskConfigSecrets(config: any): any {
+  const clone = JSON.parse(JSON.stringify(config));
+  if (clone.auth && typeof clone.auth === 'object') {
+    for (const scheme of Object.values(clone.auth) as any[]) {
+      if (scheme && typeof scheme.value === 'string' && scheme.value.length > 0) {
+        scheme.value = '[REDACTED]';
+      }
+    }
+  }
+  return sanitizeData(clone);
 }
 
 function getNestedValue(obj: any, pathStr: string): any {

@@ -143,7 +143,58 @@ export function registerDoctorCommand(program: Command): void {
         }
       }
 
-      // 6. Target API Connectivity Check
+      // 6. Server Transport Security Check
+      if (config) {
+        const transport = config.server?.transport || 'stdio';
+        if (transport === 'sse') {
+          const host = config.server?.host || 'localhost';
+          const isLoopback = ['localhost', '127.0.0.1', '::1'].includes(host);
+          const apiKeyEnvVar = config.server?.apiKeyEnvVar || 'FRIDAYY_SERVER_API_KEY';
+          const hasApiKey = Boolean(process.env[apiKeyEnvVar]);
+
+          if (!isLoopback && !hasApiKey) {
+            console.log(
+              chalk.red('✖') +
+                ` Server Transport: SSE is configured for non-loopback host "${host}" with no API key ` +
+                `(${apiKeyEnvVar} is unset). Anyone who can reach this host/port can invoke your approved tools.`
+            );
+            errorCount++;
+          } else if (!hasApiKey) {
+            console.log(
+              chalk.yellow('⚠') +
+                ` Server Transport: SSE has no API key configured (${apiKeyEnvVar}). Fine for localhost-only use, ` +
+                'but required before exposing this to a network.'
+            );
+            warnCount++;
+          } else {
+            console.log(chalk.green('✓') + ' Server Transport: SSE is protected by an API key');
+            passedCount++;
+          }
+        }
+      }
+
+      // 7. Plaintext Secret Check
+      if (config?.auth) {
+        const plaintextSchemes = Object.entries(config.auth as Record<string, any>)
+          .filter(([, scheme]) => typeof scheme?.value === 'string' && scheme.value.length > 0)
+          .map(([name]) => name);
+
+        if (plaintextSchemes.length > 0) {
+          console.log(
+            chalk.yellow('⚠') +
+              ` Secrets: fridayy.config.json stores a plaintext secret under auth.[${plaintextSchemes.join(
+                ', '
+              )}].value. Prefer "envKey" + an environment variable, or "fridayy secrets set", ` +
+              'so this file is safe to commit.'
+          );
+          warnCount++;
+        } else {
+          console.log(chalk.green('✓') + ' Secrets: No plaintext secrets stored in fridayy.config.json');
+          passedCount++;
+        }
+      }
+
+      // 8. Target API Connectivity Check
       const baseUrl = defaultSecretResolver.resolveBaseUrl(config?.source?.baseUrl);
       if (baseUrl) {
         try {

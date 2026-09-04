@@ -67,13 +67,13 @@ export function classifyOperation(
 
   // 1. Check for DESTRUCTIVE operations
   const isDeleteMethod = method === 'DELETE';
-  const hasDestructiveKeyword = DESTRUCTIVE_KEYWORDS.some(kw => {
+  const matchedDestructiveKeyword = DESTRUCTIVE_KEYWORDS.find(kw => {
     // Word boundary or underscore boundary check
     const regex = new RegExp(`\\b${kw}\\b|_${kw}_|^${kw}_|_${kw}$`, 'i');
     return regex.test(fullText);
   });
 
-  if (isDeleteMethod || hasDestructiveKeyword) {
+  if (isDeleteMethod || matchedDestructiveKeyword) {
     const isExplicitlyApproved = false;
     return {
       permissions: {
@@ -87,7 +87,7 @@ export function classifyOperation(
       status: isExplicitlyApproved ? 'APPROVED' : 'BLOCKED',
       reason: isDeleteMethod
         ? 'DELETE HTTP method carries destructive risk.'
-        : `Operation contains destructive action keyword: "${hasDestructiveKeyword}".`
+        : `Operation contains destructive action keyword: "${matchedDestructiveKeyword}".`
     };
   }
 

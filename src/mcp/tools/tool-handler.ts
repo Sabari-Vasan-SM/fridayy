@@ -105,6 +105,41 @@ export class ToolHandler {
       };
     }
 
+    // 2b. Dynamic Operation Re-classification
+    // Some tools (e.g. a generic REST "call_api_endpoint") accept the HTTP method
+    // and path as call-time arguments rather than fixing them at generation time.
+    // Their static classification (computed with a placeholder method) must not be
+    // trusted for the actual call — re-classify using the real method/path so a
+    // destructive request (e.g. method: "DELETE") is still blocked/pending review.
+    if (tool.metadata?.dynamicExecution) {
+      try {
+        this.enforcer.validateDynamicOperation(tool, {
+          method: args.method,
+          path: args.path
+        });
+      } catch (permErr: any) {
+        this.auditLogger.log({
+          timestamp: new Date().toISOString(),
+          toolName,
+          input: args,
+          result: { success: false, durationMs: Date.now() - startTime, error: permErr.code || permErr.message }
+        });
+        return {
+          isError: true,
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                error: permErr.code || 'PERMISSION_DENIED',
+                message: permErr.message,
+                details: permErr.details
+              }, null, 2)
+            }
+          ]
+        };
+      }
+    }
+
     // 3. Rate Limit Check
     const rateLimitCheck = this.rateLimiter.checkLimit(toolName, tool.rateLimit);
     if (!rateLimitCheck.allowed) {
