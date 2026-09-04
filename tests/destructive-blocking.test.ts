@@ -89,4 +89,57 @@ describe('Destructive & Unapproved Tool Blocking', () => {
 
     expect(() => enforcer.validateExecution(approvedTool)).toThrow(PermissionDeniedError);
   });
+
+  describe('Dynamic operation re-classification (call_api_endpoint bypass)', () => {
+    const dynamicTool: FridayyToolDefinition = {
+      id: 'tool_call_api_endpoint',
+      name: 'call_api_endpoint',
+      description: 'Execute a structured HTTP request',
+      inputSchema: { type: 'object' },
+      source: { type: 'rest', method: 'GET', path: '/' },
+      permissions: { type: 'WRITE', read: true, write: true, destructive: false },
+      risk: 'medium',
+      status: 'APPROVED',
+      metadata: { dynamicExecution: true }
+    };
+
+    it('is statically APPROVED, allowing normal validateExecution to pass', () => {
+      const enforcer = new PermissionEnforcer();
+      expect(() => enforcer.validateExecution(dynamicTool)).not.toThrow();
+    });
+
+    it('blocks a runtime DELETE call even though the tool is statically APPROVED', () => {
+      const enforcer = new PermissionEnforcer();
+
+      expect(() =>
+        enforcer.validateDynamicOperation(dynamicTool, { method: 'DELETE', path: '/users/123' })
+      ).toThrow(PermissionDeniedError);
+
+      try {
+        enforcer.validateDynamicOperation(dynamicTool, { method: 'DELETE', path: '/users/123' });
+      } catch (err: any) {
+        expect(err.code).toBe('DYNAMIC_OPERATION_BLOCKED');
+      }
+    });
+
+    it('blocks a runtime call whose path contains a destructive keyword', () => {
+      const enforcer = new PermissionEnforcer();
+
+      expect(() =>
+        enforcer.validateDynamicOperation(dynamicTool, { method: 'POST', path: '/users/123/purge' })
+      ).toThrow(PermissionDeniedError);
+    });
+
+    it('allows a runtime GET/POST call that is not destructive', () => {
+      const enforcer = new PermissionEnforcer({
+        name: 'test',
+        source: { type: 'rest' },
+        security: { autoApproveWrite: true }
+      });
+
+      expect(() =>
+        enforcer.validateDynamicOperation(dynamicTool, { method: 'POST', path: '/orders' })
+      ).not.toThrow();
+    });
+  });
 });

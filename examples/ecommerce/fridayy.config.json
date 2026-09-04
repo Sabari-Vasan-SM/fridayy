@@ -23,8 +23,7 @@
     "ApiKeyAuth": {
       "type": "apiKey",
       "headerName": "x-api-key",
-      "envKey": "FRIDAYY_API_KEY",
-      "value": "secret-ecommerce-key"
+      "envKey": "FRIDAYY_API_KEY"
     }
   },
   "logging": {

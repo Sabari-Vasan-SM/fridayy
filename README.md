@@ -57,6 +57,8 @@ Connecting existing production software to LLMs presents three major challenges:
 
 ## 🚀 Quick Start
 
+**Requirements:** Node.js ≥ 18 (Windows, macOS, or Linux). fridayy uses no OS-specific shell commands and resolves per-project config with `path.resolve` and per-device credentials via an OS-appropriate config directory, so it behaves the same on any of the three.
+
 ### 1. Installation
 
 Install globally via npm:
@@ -164,13 +166,31 @@ Every operation is automatically classified:
 
 ### 2. Zero-Leak Secret Isolation
 - Secrets and tokens are **never** embedded in tool schemas, descriptions, or LLM-visible payloads.
-- Authentication tokens are resolved strictly from environment variables at execution time:
+- Authentication tokens are resolved from, in priority order: an explicit `envKey`, standard `FRIDAYY_*` environment variables, and the global per-device credentials store:
   ```env
   FRIDAYY_API_KEY=your_api_key_here
   FRIDAYY_BEARER_TOKEN=your_bearer_token_here
   FRIDAYY_API_URL=http://localhost:4000
   ```
-- Sensitive headers (`Authorization`, `x-api-key`, `Cookie`) and payload fields (`password`, `token`, `secret`) are automatically redacted in audit logs and error messages.
+  Prefer environment variables (or `fridayy secrets set FRIDAYY_API_KEY <value>` to store it once per machine) over the `auth.<scheme>.value` config field — anything in `fridayy.config.json` is easy to accidentally commit to source control.
+- Sensitive headers (`Authorization`, `x-api-key`, `Cookie`) and payload fields (`password`, `token`, `secret`), along with JWTs, common vendor API-key formats, and long hex tokens found anywhere in a value, are automatically redacted in audit logs and error messages — regardless of the field name they're stored under.
+
+### 2b. Global Credentials Store (works the same on any device)
+Instead of duplicating a secret in every project's `fridayy.config.json`, store it once per machine:
+```bash
+fridayy secrets set FRIDAYY_API_KEY sk_live_...
+fridayy secrets list
+fridayy secrets remove FRIDAYY_API_KEY
+```
+This writes to an OS-appropriate, user-scoped location (`%APPDATA%\fridayy` on Windows, `~/Library/Application Support/fridayy` on macOS, `$XDG_CONFIG_HOME/fridayy` or `~/.config/fridayy` on Linux) with owner-only file permissions. It's a convenience layer over plain JSON, not an OS keychain — for production deployments, prefer real environment variables or a secrets manager.
+
+### 2c. Securing the SSE/HTTP Transport
+`fridayy start --transport sse` has **no authentication by default**, since it's designed primarily for local, single-user use. Before exposing it beyond `localhost`, set an API key:
+```bash
+export FRIDAYY_SERVER_API_KEY=some-long-random-value
+fridayy start --transport sse --host 0.0.0.0 --port 3000
+```
+Every request (except `/health`) must then present the key via `Authorization: Bearer <key>`, an `x-api-key` header, or an `?apiKey=` query parameter. Starting `sse` on a non-loopback host without a key refuses to start unless you pass `--allow-insecure` — which is not recommended.
 
 ### 3. Dynamic Schema Validation
 All input arguments provided by AI agents are validated against the tool's JSON Schema (types, required fields, ranges, and enum constraints) prior to dispatching HTTP requests.
@@ -192,6 +212,7 @@ All input arguments provided by AI agents are validated against the tool's JSON 
 | `fridayy start` | Boots standard MCP server (Stdio or SSE) | `fridayy start --transport sse --port 3000` |
 | `fridayy tools` | Lists tool statuses and permission types | `fridayy tools --approved` |
 | `fridayy config` | Displays or updates configuration | `fridayy config get source.baseUrl` |
+| `fridayy secrets` | Manages the global per-device credentials store | `fridayy secrets set FRIDAYY_API_KEY <value>` |
 | `fridayy doctor` | Runs diagnostics on config, secrets, and API | `fridayy doctor` |
 
 ---

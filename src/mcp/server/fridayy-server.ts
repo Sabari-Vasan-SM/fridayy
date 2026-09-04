@@ -121,10 +121,48 @@ export class FridayyMcpServer {
 
   /**
    * Starts the server on HTTP / SSE transport (for remote or network clients).
+   *
+   * If `apiKey` is provided, every request except `/health` must present it via
+   * an `Authorization: Bearer <key>` header, an `x-api-key` header, or (for the
+   * EventSource-based `/sse` GET request, which cannot always set headers) an
+   * `?apiKey=` query parameter. Without an apiKey, the transport has no
+   * authentication at all — callers exposing this beyond localhost are
+   * responsible for restricting network access themselves.
    */
-  public async startSse(port = 3000, host = 'localhost'): Promise<{ app: any; close: () => Promise<void> }> {
+  public async startSse(
+    port = 3000,
+    host = 'localhost',
+    apiKey?: string
+  ): Promise<{ app: any; close: () => Promise<void> }> {
     const app = express();
     app.use(express.json());
+
+    if (apiKey) {
+      app.use((req, res, next) => {
+        if (req.path === '/health') {
+          next();
+          return;
+        }
+
+        const authHeader = req.headers['authorization'];
+        const bearerToken =
+          typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
+            ? authHeader.slice(7)
+            : undefined;
+        const provided =
+          bearerToken || req.headers['x-api-key'] || (req.query.apiKey as string | undefined);
+
+        if (provided !== apiKey) {
+          res.status(401).json({
+            error: 'UNAUTHORIZED',
+            message: 'Missing or invalid API key. Provide it via Authorization: Bearer <key>, x-api-key header, or ?apiKey= query parameter.'
+          });
+          return;
+        }
+
+        next();
+      });
+    }
 
     // SSE endpoint
     app.get('/sse', async (req, res) => {

@@ -4,6 +4,7 @@
  */
 
 import { FridayyToolDefinition, FridayyConfig } from '../schema/types.js';
+import { classifyOperation, ClassificationContext } from './classifier.js';
 
 export class PermissionDeniedError extends Error {
   public readonly code: string;
@@ -108,6 +109,28 @@ export class PermissionEnforcer {
         `Tool "${tool.name}" is not included in the security allowlist.`,
         tool.name,
         'TOOL_NOT_ALLOWLISTED'
+      );
+    }
+  }
+
+  /**
+   * Re-validates a tool whose actual HTTP method/path is decided at call time
+   * (e.g. a generic "call_api_endpoint"-style tool) rather than fixed at generation
+   * time. Without this, a tool statically classified as READ/WRITE could be invoked
+   * with a runtime method/path that is actually destructive (e.g. DELETE), bypassing
+   * the classifier's BLOCKED-by-default protection for destructive operations.
+   * Throws PermissionDeniedError if the effective operation is not APPROVED.
+   */
+  public validateDynamicOperation(tool: FridayyToolDefinition, ctx: ClassificationContext): void {
+    const classification = classifyOperation(ctx, this.config);
+
+    if (classification.status !== 'APPROVED') {
+      throw new PermissionDeniedError(
+        `Tool "${tool.name}" was invoked with an operation (${ctx.method || 'GET'} ${ctx.path || ''}) ` +
+          `that is classified as ${classification.permissions.type} and is not approved for execution. ${classification.reason}`,
+        tool.name,
+        classification.status === 'BLOCKED' ? 'DYNAMIC_OPERATION_BLOCKED' : 'DYNAMIC_OPERATION_NOT_APPROVED',
+        { classification }
       );
     }
   }

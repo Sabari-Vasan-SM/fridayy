@@ -119,6 +119,8 @@ export interface FridayyConfig {
     port?: number;
     host?: string;
     maxRequestsPerMinute?: number;
+    /** Name of the environment variable holding the API key required to access the SSE/HTTP transport. */
+    apiKeyEnvVar?: string;
   };
   security?: {
     requireApprovalForDestructive?: boolean;
