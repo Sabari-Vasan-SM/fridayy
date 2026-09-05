@@ -88,7 +88,7 @@ export const FridayyConfigSchema = z.object({
   version: z.string().optional().default('1.0.0'),
   description: z.string().optional(),
   source: z.object({
-    type: z.enum(['openapi', 'rest', 'nodejs', 'manual', 'auto']),
+    type: z.enum(['openapi', 'rest', 'nodejs', 'laravel', 'manual', 'auto']),
     path: z.string().optional(),
     url: z.string().optional(),
     baseUrl: z.string().optional(),

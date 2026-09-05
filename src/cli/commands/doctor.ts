@@ -66,6 +66,25 @@ export function registerDoctorCommand(program: Command): void {
             console.log(chalk.yellow('⚠') + ' Source Adapter: No package.json found in current directory');
             warnCount++;
           }
+        } else if (sourceType === 'laravel') {
+          const artisanExists = fs.existsSync(path.join(rootDir, 'artisan'));
+          const routesDirExists = fs.existsSync(path.join(rootDir, 'routes'));
+          if (artisanExists && routesDirExists) {
+            console.log(chalk.green('✓') + ' Source Adapter: Laravel application detected (artisan + routes/) and active');
+            passedCount++;
+          } else if (routesDirExists) {
+            console.log(
+              chalk.yellow('⚠') +
+                ' Source Adapter: routes/ directory found but no `artisan` file — is this the Laravel project root?'
+            );
+            warnCount++;
+          } else {
+            console.log(
+              chalk.red('✖') +
+                ' Source Adapter: No `artisan` file or routes/ directory found in current directory'
+            );
+            errorCount++;
+          }
         } else if (sourceType === 'rest') {
           const hasUrl = Boolean(config.source?.baseUrl);
           if (hasUrl) {
