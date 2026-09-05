@@ -60,9 +60,15 @@ fridayy previously had no native way to scan PHP/Laravel routes — only OpenAPI
 - `package.json` version `1.2.1` → `1.3.0` (minor bump: new adapter + new features, semver-compatible).
 - Fixed the CLI's version string being hardcoded in two more places (`src/cli/index.ts`'s `.version(...)` call, `src/cli/ui/banner.ts`'s banner text) separately from `package.json` — both now read from a new shared helper, `src/config/package-info.ts`, which resolves `package.json` at runtime relative to the compiled module location. Prevents this drift from recurring on future releases.
 
+## Status & Release
+
+- **Published to npm**: `fridayy@1.3.0` is live on npm registry (`dist-tags.latest: 1.3.0`).
+- **Automated CI/CD**: `NPM_TOKEN` has been configured in GitHub repository secrets (`Sabari-Vasan-SM/fridayy`). Future GitHub releases (`vX.Y.Z`) will automatically build, test, sign provenance with Sigstore, and publish to npm via `.github/workflows/publish.yml`.
+- **GitHub Release**: `v1.3.0` is published on GitHub with release notes.
+
 ---
 
-## Outstanding
-
-- **npm publish is blocked**: the `~/.npmrc` token in this environment returns `404` on `PUT` to the registry (npm's way of saying "not authorized," without confirming the package exists, to avoid leaking info) — `npm whoami` also fails. The published npm package for `fridayy` is still `1.2.1`; `1.3.0` is only on GitHub (`main`) so far. Needs either a valid publish token for the `sabari_03` npm account, or the maintainer to run `npm publish` locally, or the repo's CI (`.github/workflows/publish.yml`, triggered by a GitHub Release) with a correctly-scoped `NPM_TOKEN` secret.
-- Separate task chip pending on the single-SSE-connection limitation mentioned above.
+## Next Up
+- **Multi-client SSE support**: Eliminate single-connection limitation so multiple AI clients/agents can connect concurrently.
+- **Python adapter**: Support FastAPI, Flask, and Django route discovery.
+- **CLI `fridayy call` command**: Direct terminal tool invocation.
