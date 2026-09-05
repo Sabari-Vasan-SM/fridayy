@@ -9,11 +9,13 @@ import { ScanResult, FridayyConfig } from '../schema/types.js';
 import { AdapterRegistry, defaultAdapterRegistry } from '../../adapters/registry.js';
 import { OpenApiParser } from '../../adapters/openapi/parser.js';
 import { NodeJsScanner } from '../../adapters/nodejs/ast-scanner.js';
+import { LaravelRouteScanner } from '../../adapters/laravel/route-scanner.js';
 
 export class ProjectScanner {
   private adapterRegistry: AdapterRegistry;
   private openApiParser = new OpenApiParser();
   private nodeJsScanner = new NodeJsScanner();
+  private laravelScanner = new LaravelRouteScanner();
 
   constructor(adapterRegistry: AdapterRegistry = defaultAdapterRegistry) {
     this.adapterRegistry = adapterRegistry;
@@ -82,6 +84,26 @@ export class ProjectScanner {
       totalEndpoints += discoveredRoutes.length;
     }
 
+    // 2b. Scan for a Laravel project (artisan CLI, laravel/framework composer
+    // dependency, or an actual routes/*.php with Route:: declarations).
+    const hasArtisanFile = fs.existsSync(path.join(absRoot, 'artisan'));
+    let hasLaravelComposerDep = false;
+    const composerJsonPath = path.join(absRoot, 'composer.json');
+    if (fs.existsSync(composerJsonPath)) {
+      try {
+        const composer = JSON.parse(fs.readFileSync(composerJsonPath, 'utf-8'));
+        const allPhpDeps = { ...composer.require, ...composer['require-dev'] };
+        hasLaravelComposerDep = Boolean(allPhpDeps['laravel/framework'] || allPhpDeps['laravel/lumen-framework']);
+      } catch {
+        // ignore malformed composer.json
+      }
+    }
+    const laravelRoutes = hasArtisanFile || hasLaravelComposerDep ? await this.laravelScanner.scanDirectory(absRoot) : [];
+    const hasLaravel = hasArtisanFile || hasLaravelComposerDep || laravelRoutes.length > 0;
+    if (!hasOpenApi && !hasNodeJs && laravelRoutes.length > 0) {
+      totalEndpoints += laravelRoutes.length;
+    }
+
     // 3. Formulate recommended configuration
     const projectName = path.basename(absRoot);
 
@@ -90,6 +112,12 @@ export class ProjectScanner {
       recommendedSource = {
         type: 'openapi',
         path: openApiFiles[0]
+      };
+    } else if (hasLaravel) {
+      recommendedSource = {
+        type: 'laravel',
+        rootDir: './',
+        baseUrl: 'http://localhost:8000'
       };
     } else if (hasNodeJs) {
       recommendedSource = {
@@ -124,12 +152,13 @@ export class ProjectScanner {
       openApiFiles,
       hasNodeJs,
       nodeJsFramework,
+      hasLaravel,
       discoveredEndpointsCount: totalEndpoints,
       authSchemesDetected: Array.from(authSchemesDetected),
       recommendedConfig,
       details: {
         openApiSpecs: openApiSpecsDetails,
-        routes: discoveredRoutes
+        routes: hasLaravel && !hasOpenApi && !hasNodeJs ? laravelRoutes : discoveredRoutes
       }
     };
   }

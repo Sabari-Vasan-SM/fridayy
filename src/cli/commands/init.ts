@@ -21,7 +21,7 @@ export function registerInitCommand(program: Command): void {
     .option('-y, --yes', 'Skip prompts and accept recommended defaults')
     .option('-f, --force', 'Overwrite existing configuration file')
     .option('--name <name>', 'Project name')
-    .option('--source <type>', 'Source adapter type: openapi, nodejs, rest, manual')
+    .option('--source <type>', 'Source adapter type: openapi, nodejs, laravel, rest, manual')
     .option('--spec <path>', 'Path to OpenAPI specification file')
     .option('--url <url>', 'Target API base URL (e.g. http://localhost:4000)')
     .action(async (options) => {
@@ -64,6 +64,12 @@ export function registerInitCommand(program: Command): void {
             type: 'nodejs',
             rootDir: './',
             baseUrl: options.url || config.source.baseUrl
+          };
+        } else if (srcType === 'laravel') {
+          config.source = {
+            type: 'laravel',
+            rootDir: './',
+            baseUrl: options.url || config.source.baseUrl || 'http://localhost:8000'
           };
         } else if (srcType === 'rest') {
           config.source = {

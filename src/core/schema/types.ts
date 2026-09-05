@@ -9,7 +9,7 @@ export type ToolRiskLevel = 'low' | 'medium' | 'high';
 
 export type ToolApprovalStatus = 'APPROVED' | 'PENDING' | 'BLOCKED' | 'REJECTED';
 
-export type SourceType = 'openapi' | 'rest' | 'nodejs' | 'manual' | 'graphql' | string;
+export type SourceType = 'openapi' | 'rest' | 'nodejs' | 'laravel' | 'manual' | 'graphql' | string;
 
 export type AuthType = 'apiKey' | 'bearer' | 'basic' | 'customHeader' | 'oauth2' | 'none';
 
@@ -105,7 +105,7 @@ export interface FridayyConfig {
   version?: string;
   description?: string;
   source: {
-    type: 'openapi' | 'rest' | 'nodejs' | 'manual' | 'auto';
+    type: 'openapi' | 'rest' | 'nodejs' | 'laravel' | 'manual' | 'auto';
     path?: string;
     url?: string;
     baseUrl?: string;
@@ -183,6 +183,7 @@ export interface ScanResult {
   openApiFiles: string[];
   hasNodeJs: boolean;
   nodeJsFramework?: 'express' | 'fastify' | 'koa' | 'nestjs' | 'custom' | 'none';
+  hasLaravel: boolean;
   discoveredEndpointsCount: number;
   authSchemesDetected: string[];
   recommendedConfig: Partial<FridayyConfig>;

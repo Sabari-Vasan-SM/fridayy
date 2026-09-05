@@ -17,7 +17,8 @@ Instead of rewriting backend code or exposing raw endpoints to AI agents without
 ```
 ┌───────────────────────────────┐
 │     Existing Application      │
-│  (OpenAPI / REST / Node.js)   │
+│ (OpenAPI / REST / Node.js /   │
+│          Laravel)             │
 └───────────────┬───────────────┘
                 │
                 ▼
@@ -99,6 +100,40 @@ fridayy start
 
 ---
 
+### 🔌 Supported Source Adapters
+
+| Source | Detection | `--source` value | Notes |
+|---|---|---|---|
+| OpenAPI / Swagger | `openapi.yaml`, `swagger.json`, etc. found in the project | `openapi` | Works with any backend language that can export a spec |
+| Node.js (Express / Fastify / Koa / NestJS / Next.js) | `package.json` + route scan | `nodejs` | Scans your JS/TS source directly, no spec needed |
+| **Laravel** | `artisan` file or `laravel/framework` in `composer.json` | `laravel` | Scans `routes/*.php` directly, no spec needed — see below |
+| Generic REST | Fallback when nothing else is detected | `rest` | Works with literally any HTTP backend, less granular |
+
+#### Using fridayy with a Laravel project
+
+Run these from your Laravel project root (where `artisan` lives):
+
+```bash
+fridayy init --source laravel --url http://localhost:8000
+fridayy scan       # lists routes discovered in routes/web.php and routes/api.php
+fridayy generate   # generates one tool per route
+fridayy review --approve-read
+fridayy start
+```
+
+The Laravel adapter reads `routes/*.php` directly — no OpenAPI spec required — and understands:
+- Plain declarations: `Route::get('/users', [UserController::class, 'index'])`
+- `Route::apiResource('users', UserController::class)` / `Route::resource(...)`, including `->only([...])` / `->except([...])`
+- `Route::prefix('v1')->group(function () { ... })` and nested groups
+- Laravel's convention that everything in `routes/api.php` is served under `/api`
+- Route parameters (`{id}`, `{id?}`) mapped to tool input parameters
+
+As with every other adapter, `DELETE` routes (and `apiResource`'s `destroy` action) are classified `DESTRUCTIVE` and `BLOCKED` until you explicitly approve them via `fridayy review`.
+
+> This is a regex-based scanner, not a full PHP parser — it expects conventionally-formatted route files (one route or group-opener per line, as Laravel's own docs and starter kits write them). Routes built up dynamically in a loop, or registered from third-party service providers, won't be discovered; use an OpenAPI spec (e.g. via `l5-swagger`) for full coverage in those cases.
+
+---
+
 ### 🤖 Pointing AI Assistants to Your Project
 
 Simply point any LLM or AI agent (Cursor, Claude, ChatGPT, Gemini, Antigravity) to:
@@ -131,6 +166,7 @@ fridayy/
 │   ├── openapi/         # OpenAPI 3.0, 3.1 & Swagger 2.0 parser & request builder
 │   ├── rest/            # Generic HTTP / REST executor
 │   ├── nodejs/          # Express / Fastify / Koa AST route scanner
+│   ├── laravel/         # Laravel routes/*.php scanner (Route::, resource/apiResource, groups)
 │   ├── manual/          # Custom user-defined tools
 │   └── registry.ts      # Adapter Registry (extensible to GraphQL, SQL, etc.)
 │
@@ -300,6 +336,7 @@ npm run example:demo
 
 - [x] OpenAPI 3.0, 3.1 & Swagger 2.0 support
 - [x] Node.js / Express / Fastify route discovery
+- [x] Laravel PHP route discovery (`routes/*.php`, resource/apiResource, groups)
 - [x] Stdio & SSE Transport support
 - [x] Granular permission classifier & destructive blocking
 - [x] Zero-leak secret isolation

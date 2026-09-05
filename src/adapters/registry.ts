@@ -7,6 +7,7 @@ import { BaseAdapter } from './base.js';
 import { OpenApiAdapter } from './openapi/adapter.js';
 import { RestAdapter } from './rest/adapter.js';
 import { NodeJsAdapter } from './nodejs/adapter.js';
+import { LaravelAdapter } from './laravel/adapter.js';
 import { ManualAdapter } from './manual/adapter.js';
 
 export class AdapterRegistry {
@@ -20,6 +21,7 @@ export class AdapterRegistry {
     this.register(new OpenApiAdapter());
     this.register(new RestAdapter());
     this.register(new NodeJsAdapter());
+    this.register(new LaravelAdapter());
     this.register(new ManualAdapter());
   }
 
