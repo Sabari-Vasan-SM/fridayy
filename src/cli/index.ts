@@ -18,6 +18,7 @@ import { registerDoctorCommand } from './commands/doctor.js';
 import { registerUseCommand } from './commands/use.js';
 import { printBanner } from './ui/banner.js';
 import { runStartupAnimation } from './ui/startup-animation.js';
+import { getPackageVersion } from '../config/package-info.js';
 
 export function createCli(): Command {
   const program = new Command();
@@ -25,7 +26,7 @@ export function createCli(): Command {
   program
     .name('fridayy')
     .description('Universal Application-to-MCP Platform — Turn existing APIs into AI-ready MCP tools')
-    .version('1.2.1')
+    .version(getPackageVersion())
     .action(async () => {
       printBanner();
       await runStartupAnimation();
