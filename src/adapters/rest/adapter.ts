@@ -14,7 +14,7 @@ import {
   FridayyToolDefinition,
   ToolExecutionResult
 } from '../../core/schema/types.js';
-import { buildHttpRequest } from '../openapi/request-builder.js';
+import { buildHttpRequest, applyAuthToRequest } from '../openapi/request-builder.js';
 import { defaultRestExecutor } from './executor.js';
 import { AuthenticationManager } from '../../core/authentication/manager.js';
 import { defaultSecretResolver } from '../../core/authentication/secret-resolver.js';
@@ -171,10 +171,7 @@ export class RestAdapter extends BaseAdapter {
         Object.assign(preparedReq.headers, context.headers);
       }
 
-      authManager.applyAuth(tool.authentication, {
-        headers: preparedReq.headers,
-        queryParams: {}
-      });
+      applyAuthToRequest(authManager, tool.authentication, preparedReq);
 
       return await this.restExecutor.execute(preparedReq, tool.name, {
         timeoutMs: context.timeoutMs
@@ -187,10 +184,7 @@ export class RestAdapter extends BaseAdapter {
       Object.assign(preparedReq.headers, context.headers);
     }
 
-    authManager.applyAuth(tool.authentication, {
-      headers: preparedReq.headers,
-      queryParams: {}
-    });
+    applyAuthToRequest(authManager, tool.authentication, preparedReq);
 
     return await this.restExecutor.execute(preparedReq, tool.name, {
       timeoutMs: context.timeoutMs

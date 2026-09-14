@@ -22,7 +22,7 @@ import { classifyOperation } from '../../core/permissions/classifier.js';
 import { buildToolDescription } from '../../core/tool-generator/description-builder.js';
 import { buildUnifiedInputSchema } from '../../core/schema/json-schema.js';
 import { defaultRestExecutor } from '../rest/executor.js';
-import { buildHttpRequest } from '../openapi/request-builder.js';
+import { buildHttpRequest, applyAuthToRequest } from '../openapi/request-builder.js';
 import { AuthenticationManager } from '../../core/authentication/manager.js';
 import { defaultSecretResolver } from '../../core/authentication/secret-resolver.js';
 
@@ -157,10 +157,7 @@ export class NodeJsAdapter extends BaseAdapter {
       Object.assign(preparedReq.headers, context.headers);
     }
 
-    authManager.applyAuth(tool.authentication, {
-      headers: preparedReq.headers,
-      queryParams: {}
-    });
+    applyAuthToRequest(authManager, tool.authentication, preparedReq);
 
     return await this.restExecutor.execute(preparedReq, tool.name, {
       timeoutMs: context.timeoutMs

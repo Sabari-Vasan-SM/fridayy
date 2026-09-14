@@ -23,7 +23,7 @@ import { buildUnifiedInputSchema } from '../../core/schema/json-schema.js';
 import { sanitizeToolName, generateToolNameFromRoute } from '../../core/tool-generator/name-sanitizer.js';
 import { buildToolDescription } from '../../core/tool-generator/description-builder.js';
 import { classifyOperation } from '../../core/permissions/classifier.js';
-import { buildHttpRequest } from './request-builder.js';
+import { buildHttpRequest, applyAuthToRequest } from './request-builder.js';
 import { defaultRestExecutor, RestExecutor } from '../rest/executor.js';
 import { AuthenticationManager } from '../../core/authentication/manager.js';
 import { defaultSecretResolver } from '../../core/authentication/secret-resolver.js';
@@ -209,10 +209,7 @@ export class OpenApiAdapter extends BaseAdapter {
     }
 
     // Apply authentication
-    authManager.applyAuth(tool.authentication, {
-      headers: preparedReq.headers,
-      queryParams: {}
-    });
+    applyAuthToRequest(authManager, tool.authentication, preparedReq);
 
     // Execute via REST executor
     return await this.restExecutor.execute(preparedReq, tool.name, {
