@@ -34,3 +34,59 @@ jobs:
 
       - name: Run End-to-End Demo
         run: npm run example:demo
+
+  verify-installed-package:
+    # Every other job in this file runs the CLI via `node bin/fridayy.js`,
+    # `node dist/cli/index.js`, or by importing source/dist modules directly
+    # from vitest. None of those is the actual shape a real user invokes:
+    # `npm install -g` creates the bin entry as a symlink literally named
+    # `fridayy` (no file extension). A bug that only misbehaves through that
+    # specific installed shape (see the double-execution bug fixed for
+    # v1.3.1) is invisible to every test above and only catchable by actually
+    # packing, installing, and running the published artifact end to end.
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build TypeScript
+        run: npm run build
+
+      - name: Pack the npm tarball
+        run: npm pack --pack-destination /tmp
+
+      - name: Install the packed tarball globally
+        run: |
+          mkdir -p /tmp/fridayy-global-prefix
+          npm install -g --prefix /tmp/fridayy-global-prefix /tmp/fridayy-*.tgz
+
+      - name: Run the installed CLI through its real global-bin shim
+        run: |
+          export PATH="/tmp/fridayy-global-prefix/bin:$PATH"
+          which fridayy
+          test -L "$(which fridayy)" || (echo "expected the installed bin to be a symlink, as npm creates it" && exit 1)
+
+          VERSION_OUTPUT="$(fridayy --version)"
+          VERSION_LINES="$(echo "$VERSION_OUTPUT" | wc -l | tr -d ' ')"
+          echo "fridayy --version -> $VERSION_OUTPUT ($VERSION_LINES line(s))"
+          if [ "$VERSION_LINES" != "1" ]; then
+            echo "::error::--version printed $VERSION_LINES lines through the installed shim (expected 1) — command likely ran more than once"
+            exit 1
+          fi
+
+          USE_OUTPUT="$(fridayy use)"
+          MOTTO_COUNT="$(echo "$USE_OUTPUT" | grep -c 'THE FRIDAYY MOTTO')"
+          echo "fridayy use -> MOTTO line appeared $MOTTO_COUNT time(s)"
+          if [ "$MOTTO_COUNT" != "1" ]; then
+            echo "::error::'fridayy use' output the MOTTO banner $MOTTO_COUNT times through the installed shim (expected 1) — command likely ran more than once"
+            exit 1
+          fi

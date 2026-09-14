@@ -5,7 +5,7 @@
 
 import { Command } from 'commander';
 import { fileURLToPath } from 'node:url';
-import path from 'node:path';
+import fs from 'node:fs';
 import { registerInitCommand } from './commands/init.js';
 import { registerScanCommand } from './commands/scan.js';
 import { registerGenerateCommand } from './commands/generate.js';
@@ -62,21 +62,29 @@ export async function run(): Promise<void> {
   await program.parseAsync(process.argv);
 }
 
-// If directly executed. Compares resolved filesystem paths (via fileURLToPath)
-// rather than raw URL/argv strings, since those differ in separator style and
-// percent-encoding between POSIX and Windows and would otherwise never match
-// on Windows, silently falling through to the `endsWith` heuristics below.
+// If directly executed. Compares *resolved* (symlink-following) filesystem
+// paths, via fs.realpathSync + fileURLToPath, rather than raw URL/argv
+// strings or an `endsWith(...)` heuristic.
+//
+// Both matter: a plain path.resolve() comparison breaks on Windows, where
+// import.meta.url and argv[1] differ in separator style and percent-encoding.
+// And an `endsWith('fridayy')` fallback is actively dangerous — `npm install
+// -g` creates the CLI's bin entry as a symlink literally named `fridayy` (no
+// extension), so process.argv[1] for every real installed invocation matches
+// that heuristic. That made this module think it was run directly and call
+// run() during bin/fridayy.js's `import`, which then calls run() again itself
+// — every command executed twice for every user who installed the package,
+// while `node bin/fridayy.js` and `tsx src/cli/index.ts` in local dev never
+// triggered it. realpath comparison has no such false positive: the installed
+// symlink resolves to bin/fridayy.js, not to this file.
 const isDirectlyExecuted = (() => {
   const entry = process.argv[1];
   if (!entry) return false;
   try {
-    if (path.resolve(fileURLToPath(import.meta.url)) === path.resolve(entry)) {
-      return true;
-    }
+    return fs.realpathSync(fileURLToPath(import.meta.url)) === fs.realpathSync(entry);
   } catch {
-    // import.meta.url wasn't a file:// URL; fall through to heuristics below
+    return false;
   }
-  return entry.endsWith('fridayy') || entry.endsWith('index.ts') || entry.endsWith('index.js');
 })();
 
 if (isDirectlyExecuted) {
