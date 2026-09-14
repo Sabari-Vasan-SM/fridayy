@@ -59,7 +59,9 @@ export class PermissionEnforcer {
     // Check status
     if (tool.status === 'BLOCKED') {
       throw new PermissionDeniedError(
-        `Tool "${tool.name}" is BLOCKED. Destructive operations require explicit developer approval via 'fridayy review'.`,
+        `Tool "${tool.name}" is BLOCKED. Destructive operations require explicit developer approval via ` +
+          `'fridayy review'. Note: approving a tool only updates fridayy.tools.json — a running server does ` +
+          `not pick up the change until it is restarted ('fridayy start').`,
         tool.name,
         'TOOL_BLOCKED',
         { status: tool.status, permissions: tool.permissions }
@@ -77,7 +79,9 @@ export class PermissionEnforcer {
 
     if (tool.status === 'PENDING') {
       throw new PermissionDeniedError(
-        `Tool "${tool.name}" is PENDING developer review. Run 'fridayy review' to approve it before invoking.`,
+        `Tool "${tool.name}" is PENDING developer review. Run 'fridayy review' to approve it, then restart ` +
+          `the server ('fridayy start') — approving a tool only updates fridayy.tools.json and has no effect ` +
+          `on a server that is already running.`,
         tool.name,
         'TOOL_PENDING_APPROVAL',
         { status: tool.status }
