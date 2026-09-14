@@ -31,21 +31,50 @@ export interface FridayyServerOptions {
 export class FridayyMcpServer {
   private server: Server;
   private config: FridayyConfig;
+  private serverName: string;
+  private serverVersion: string;
   private toolRegistry: ToolRegistry;
   private toolHandler: ToolHandler;
   private resourceRegistry: ResourceRegistry;
   private promptRegistry: PromptRegistry;
   private sseTransports: Map<string, SSEServerTransport> = new Map();
+  private sseServers: Map<string, Server> = new Map();
 
   constructor(options: FridayyServerOptions) {
     this.config = options.config;
-    const serverName = options.config.server?.name || options.config.name || 'fridayy-mcp-server';
-    const serverVersion = options.config.server?.version || options.config.version || '1.0.0';
+    this.serverName = options.config.server?.name || options.config.name || 'fridayy-mcp-server';
+    this.serverVersion = options.config.server?.version || options.config.version || '1.0.0';
 
-    this.server = new Server(
+    this.toolRegistry = new ToolRegistry(options.tools, options.config);
+    this.toolHandler = new ToolHandler({
+      config: options.config,
+      adapterRegistry: options.adapterRegistry || defaultAdapterRegistry
+    });
+    this.resourceRegistry = new ResourceRegistry(this.toolRegistry, options.config);
+    this.promptRegistry = new PromptRegistry();
+
+    // A single default Server instance, used by startStdio() (exactly one
+    // client ever connects over stdio) and returned by getUnderlyingServer()
+    // for direct in-process connections (e.g. tests using InMemoryTransport).
+    this.server = this.createMcpServer();
+  }
+
+  /**
+   * Builds a fresh MCP `Server` instance with the standard tool/resource/
+   * prompt handlers registered on it.
+   *
+   * The MCP SDK's `Server.connect()` only supports one connected transport
+   * at a time — calling it a second time on the same instance throws
+   * "Already connected to a transport." A single shared `Server` therefore
+   * cannot serve more than one SSE client concurrently, so `startSse()`
+   * calls this once per incoming `/sse` connection rather than reusing one
+   * instance across sessions.
+   */
+  private createMcpServer(): Server {
+    const server = new Server(
       {
-        name: serverName,
-        version: serverVersion
+        name: this.serverName,
+        version: this.serverVersion
       },
       {
         capabilities: {
@@ -56,20 +85,13 @@ export class FridayyMcpServer {
       }
     );
 
-    this.toolRegistry = new ToolRegistry(options.tools, options.config);
-    this.toolHandler = new ToolHandler({
-      config: options.config,
-      adapterRegistry: options.adapterRegistry || defaultAdapterRegistry
-    });
-    this.resourceRegistry = new ResourceRegistry(this.toolRegistry, options.config);
-    this.promptRegistry = new PromptRegistry();
-
-    this.registerHandlers();
+    this.registerHandlers(server);
+    return server;
   }
 
-  private registerHandlers(): void {
+  private registerHandlers(server: Server): void {
     // 1. List Tools Handler
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+    server.setRequestHandler(ListToolsRequestSchema, async () => {
       const exposedTools = this.toolRegistry.getExposedTools();
       return {
         tools: exposedTools.map(tool => ({
@@ -81,32 +103,32 @@ export class FridayyMcpServer {
     });
 
     // 2. Call Tool Handler
-    this.server.setRequestHandler(CallToolRequestSchema, async request => {
+    server.setRequestHandler(CallToolRequestSchema, async request => {
       const { name, arguments: args } = request.params;
       return await this.toolHandler.handleCall(name, args || {}, this.toolRegistry);
     });
 
     // 3. List Resources Handler
-    this.server.setRequestHandler(ListResourcesRequestSchema, async () => {
+    server.setRequestHandler(ListResourcesRequestSchema, async () => {
       return {
         resources: this.resourceRegistry.listResources()
       };
     });
 
     // 4. Read Resource Handler
-    this.server.setRequestHandler(ReadResourceRequestSchema, async request => {
+    server.setRequestHandler(ReadResourceRequestSchema, async request => {
       return this.resourceRegistry.readResource(request.params.uri);
     });
 
     // 5. List Prompts Handler
-    this.server.setRequestHandler(ListPromptsRequestSchema, async () => {
+    server.setRequestHandler(ListPromptsRequestSchema, async () => {
       return {
         prompts: this.promptRegistry.listPrompts()
       };
     });
 
     // 6. Get Prompt Handler
-    this.server.setRequestHandler(GetPromptRequestSchema, async request => {
+    server.setRequestHandler(GetPromptRequestSchema, async request => {
       return this.promptRegistry.getPrompt(request.params.name, request.params.arguments);
     });
   }
@@ -164,20 +186,31 @@ export class FridayyMcpServer {
       });
     }
 
-    // SSE endpoint
+    // SSE endpoint. Each connection gets its own Server instance (see
+    // createMcpServer()) so concurrent clients don't fight over one
+    // single-transport-at-a-time Server.
     app.get('/sse', async (req, res) => {
       const transport = new SSEServerTransport('/messages', res);
       const sessionId = transport.sessionId;
+      const sessionServer = this.createMcpServer();
+
       this.sseTransports.set(sessionId, transport);
+      this.sseServers.set(sessionId, sessionServer);
 
       req.on('close', () => {
         this.sseTransports.delete(sessionId);
+        this.sseServers.delete(sessionId);
       });
 
-      await this.server.connect(transport);
+      await sessionServer.connect(transport);
     });
 
-    // Message receiver endpoint
+    // Message receiver endpoint. express.json() above has already consumed
+    // and parsed the request body, so the underlying stream is no longer
+    // readable — the SDK's handlePostMessage() must be given that parsed
+    // body directly (its optional third argument) rather than re-reading
+    // req itself, or every POST here fails with "stream is not readable"
+    // and the SSE handshake can never complete.
     app.post('/messages', async (req, res) => {
       const sessionId = req.query.sessionId as string;
       const transport = this.sseTransports.get(sessionId);
@@ -187,7 +220,7 @@ export class FridayyMcpServer {
         return;
       }
 
-      await transport.handlePostMessage(req, res);
+      await transport.handlePostMessage(req, res, req.body);
     });
 
     // Health endpoint

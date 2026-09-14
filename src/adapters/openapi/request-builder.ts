@@ -3,7 +3,8 @@
  * Interpolates URL path params, serializes query strings, and packages payloads for REST execution.
  */
 
-import { FridayyToolDefinition } from '../../core/schema/types.js';
+import { FridayyToolDefinition, ToolAuthentication } from '../../core/schema/types.js';
+import { AuthenticationManager } from '../../core/authentication/manager.js';
 
 export interface PreparedHttpRequest {
   url: string;
@@ -106,4 +107,42 @@ export function buildHttpRequest(
     headers,
     body: bodyString
   };
+}
+
+/**
+ * Appends additional query parameters (e.g. an API key resolved for a
+ * `?api_key=`-style auth scheme) onto an already-built URL.
+ */
+function appendQueryParams(url: string, queryParams: Record<string, string>): string {
+  const entries = Object.entries(queryParams);
+  if (entries.length === 0) return url;
+
+  const queryString = new URLSearchParams(queryParams).toString();
+  return `${url}${url.includes('?') ? '&' : '?'}${queryString}`;
+}
+
+/**
+ * Applies authentication to a prepared request IN PLACE: headers are merged
+ * directly (they're the same object AuthenticationManager.applyAuth mutates),
+ * and any query-parameter-based credentials (e.g. `apiKey` with `in: query`)
+ * are appended onto `preparedReq.url` — which, unlike headers, can't simply
+ * be mutated after the fact, since the URL string was already finalized by
+ * buildHttpRequest().
+ *
+ * This is the ONLY sanctioned way for an adapter to apply auth to a prepared
+ * request. Calling `authManager.applyAuth(auth, { headers, queryParams: {} })`
+ * directly and discarding the return value — the pattern every adapter used
+ * before this existed — silently drops any query-based credential: the
+ * secret resolves fine, the tool records the right queryParam name, but it
+ * is never actually sent, and the target API 401s with nothing in the
+ * output explaining why. See tests/no-direct-apply-auth.test.ts, which fails
+ * if any adapter calls `.applyAuth(` directly instead of through here.
+ */
+export function applyAuthToRequest(
+  authManager: AuthenticationManager,
+  auth: ToolAuthentication | undefined,
+  preparedReq: PreparedHttpRequest
+): void {
+  const result = authManager.applyAuth(auth, { headers: preparedReq.headers, queryParams: {} });
+  preparedReq.url = appendQueryParams(preparedReq.url, result.queryParams);
 }
