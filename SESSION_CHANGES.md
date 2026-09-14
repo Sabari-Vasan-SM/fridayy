@@ -60,15 +60,25 @@ fridayy previously had no native way to scan PHP/Laravel routes — only OpenAPI
 - `package.json` version `1.2.1` → `1.3.0` (minor bump: new adapter + new features, semver-compatible).
 - Fixed the CLI's version string being hardcoded in two more places (`src/cli/index.ts`'s `.version(...)` call, `src/cli/ui/banner.ts`'s banner text) separately from `package.json` — both now read from a new shared helper, `src/config/package-info.ts`, which resolves `package.json` at runtime relative to the compiled module location. Prevents this drift from recurring on future releases.
 
+---
+
+## PR #7, #8, #9 — Bugfixes, Multi-Client SSE & Tool Annotations (`v1.3.1`)
+
+- **PR #7 (`fix/cli-double-execution`)**: Fixed an issue where CLI commands were executing twice when invoked via the globally installed binary.
+- **PR #8 (`fix/sse-handshake-and-auth-guardrail`)**: Implemented dedicated per-session MCP `Server` instances to support multiple concurrent SSE clients, and fixed query-parameter authentication retention across the SSE handshake.
+- **PR #9 (`fix/review-loop-messaging-and-tool-hints`)**: Improved review loop UX and added MCP tool annotation hints.
+- **Test Suite**: 84 → 101 tests passing across 24 test files.
+
+---
+
 ## Status & Release
 
-- **Published to npm**: `fridayy@1.3.0` is live on npm registry (`dist-tags.latest: 1.3.0`).
-- **Automated CI/CD**: `NPM_TOKEN` has been configured in GitHub repository secrets (`Sabari-Vasan-SM/fridayy`). Future GitHub releases (`vX.Y.Z`) will automatically build, test, sign provenance with Sigstore, and publish to npm via `.github/workflows/publish.yml`.
-- **GitHub Release**: `v1.3.0` is published on GitHub with release notes.
+- **Published to npm**: `fridayy@1.3.1` is live on npm registry (`dist-tags.latest: 1.3.1`).
+- **Automated CI/CD**: `NPM_TOKEN` configured in GitHub repository secrets (`Sabari-Vasan-SM/fridayy`).
+- **GitHub Release**: [`v1.3.1` on GitHub](https://github.com/Sabari-Vasan-SM/fridayy/releases/tag/v1.3.1).
 
 ---
 
 ## Next Up
-- **Multi-client SSE support**: Eliminate single-connection limitation so multiple AI clients/agents can connect concurrently.
 - **Python adapter**: Support FastAPI, Flask, and Django route discovery.
 - **CLI `fridayy call` command**: Direct terminal tool invocation.
