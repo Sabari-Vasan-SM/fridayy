@@ -41,6 +41,7 @@ export function registerReviewCommand(program: Command): void {
         const count = defaultConfigManager.bulkUpdateStatus(() => true, 'APPROVED', rootDir);
         logger.success(`Approved all ${chalk.bold(count)} tools.`);
         printToolsSummary(defaultConfigManager.loadTools(rootDir));
+        printRestartReminder();
         return;
       }
 
@@ -52,6 +53,7 @@ export function registerReviewCommand(program: Command): void {
         );
         logger.success(`Approved all ${chalk.bold(count)} READ tools.`);
         printToolsSummary(defaultConfigManager.loadTools(rootDir));
+        printRestartReminder();
         return;
       }
 
@@ -59,6 +61,7 @@ export function registerReviewCommand(program: Command): void {
         const ok = defaultConfigManager.updateToolStatus(options.approve, 'APPROVED', rootDir);
         if (ok) {
           logger.success(`Approved tool "${chalk.bold(options.approve)}".`);
+          printRestartReminder();
         } else {
           logger.error(`Tool "${options.approve}" not found.`);
         }
@@ -69,6 +72,7 @@ export function registerReviewCommand(program: Command): void {
         const ok = defaultConfigManager.updateToolStatus(options.reject, 'REJECTED', rootDir);
         if (ok) {
           logger.success(`Rejected tool "${chalk.bold(options.reject)}".`);
+          printRestartReminder();
         } else {
           logger.error(`Tool "${options.reject}" not found.`);
         }
@@ -79,6 +83,7 @@ export function registerReviewCommand(program: Command): void {
         const ok = defaultConfigManager.updateToolStatus(options.block, 'BLOCKED', rootDir);
         if (ok) {
           logger.success(`Blocked tool "${chalk.bold(options.block)}".`);
+          printRestartReminder();
         } else {
           logger.error(`Tool "${options.block}" not found.`);
         }
@@ -99,6 +104,24 @@ export function registerReviewCommand(program: Command): void {
         console.log(`  ${chalk.cyan('fridayy review --block <name>')}   (Block specific tool)\n`);
       }
     });
+}
+
+/**
+ * fridayy review only writes to fridayy.tools.json on disk — there is no file
+ * watching or MCP `notifications/tools/list_changed` support (a server loads
+ * its tool list once, at startup). Without this, a user who runs
+ * `fridayy review --approve-all` while a server is already running sees a
+ * success message and reasonably assumes the change is now live; it silently
+ * is not, and the tool keeps failing with a PENDING/BLOCKED error until the
+ * server is restarted.
+ */
+function printRestartReminder(): void {
+  console.log(
+    chalk.yellow(
+      '\n⚠ This only updates fridayy.tools.json on disk. If a server is already running (`fridayy start`), ' +
+        'restart it for this change to take effect — approvals are not applied live.'
+    )
+  );
 }
 
 function printToolsSummary(tools: FridayyToolDefinition[]): void {
@@ -149,10 +172,13 @@ async function runInteractiveReview(tools: FridayyToolDefinition[], rootDir: str
         rootDir
       );
       logger.success(`Approved ${count} READ tools.`);
+      printRestartReminder();
     } else if (action === 'approve-all') {
       const count = defaultConfigManager.bulkUpdateStatus(() => true, 'APPROVED', rootDir);
       logger.success(`Approved all ${count} tools.`);
+      printRestartReminder();
     } else if (action === 'individual') {
+      let changedCount = 0;
       for (const tool of tools) {
         const choice = await select({
           message: `Tool "${tool.name}" [${tool.permissions.type}] (${tool.source.method || ''} ${tool.source.path || ''})`,
@@ -166,9 +192,13 @@ async function runInteractiveReview(tools: FridayyToolDefinition[], rootDir: str
 
         if (choice !== 'KEEP') {
           defaultConfigManager.updateToolStatus(tool.name, choice as ToolApprovalStatus, rootDir);
+          changedCount++;
         }
       }
       logger.success('Individual review completed.');
+      if (changedCount > 0) {
+        printRestartReminder();
+      }
     }
   } catch {
     // User cancelled interactive prompt

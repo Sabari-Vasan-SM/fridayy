@@ -18,6 +18,7 @@ import express from 'express';
 import { FridayyConfig, FridayyToolDefinition } from '../../core/schema/types.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import { ToolHandler } from '../tools/tool-handler.js';
+import { buildToolAnnotations } from '../tools/tool-annotations.js';
 import { ResourceRegistry } from '../resources/resource-registry.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { AdapterRegistry, defaultAdapterRegistry } from '../../adapters/registry.js';
@@ -97,7 +98,8 @@ export class FridayyMcpServer {
         tools: exposedTools.map(tool => ({
           name: tool.name,
           description: tool.description,
-          inputSchema: tool.inputSchema
+          inputSchema: tool.inputSchema,
+          annotations: buildToolAnnotations(tool)
         }))
       };
     });

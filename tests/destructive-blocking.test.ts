@@ -54,6 +54,11 @@ describe('Destructive & Unapproved Tool Blocking', () => {
     } catch (err: any) {
       expect(err.code).toBe('TOOL_BLOCKED');
       expect(err.message).toContain('Destructive operations require explicit developer approval');
+      // Approving a tool only edits fridayy.tools.json — a server that's
+      // already running doesn't pick that up until restarted. The error a
+      // user sees while that's true must say so, not just point at
+      // `fridayy review` as if running it were sufficient by itself.
+      expect(err.message).toContain('restart');
     }
   });
 
@@ -65,6 +70,7 @@ describe('Destructive & Unapproved Tool Blocking', () => {
       enforcer.validateExecution(pendingTool);
     } catch (err: any) {
       expect(err.code).toBe('TOOL_PENDING_APPROVAL');
+      expect(err.message).toContain('restart');
     }
   });
 
